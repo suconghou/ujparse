@@ -20,7 +20,7 @@ class infoGetter {
             const itag = item.itag
             const s = {
                 "quality": item.qualityLabel || item.quality,
-                "type": item.mimeType,
+                "type": item.mimeType.replace(/\+/g, ' '),
                 "itag": itag,
                 "len": item.contentLength,
             }
@@ -33,7 +33,7 @@ class infoGetter {
             const itag = item.itag
             const s = {
                 "quality": item.qualityLabel || item.quality,
-                "type": item.mimeType,
+                "type": item.mimeType.replace(/\+/g, ' '),
                 "itag": itag,
                 "len": item.contentLength,
                 "initRange": item.initRange,
