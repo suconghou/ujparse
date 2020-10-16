@@ -98,7 +98,7 @@ class pageParser extends infoGetter {
             throw new Error("get page data failed");
         }
         const arr = text.match(/ytplayer\.config\s*=\s*({.+?});ytplayer/)
-        if (arr.length < 2) {
+        if (!arr || arr.length < 2) {
             throw new Error("ytplayer config not found")
         }
         const data = JSON.parse(arr[1])

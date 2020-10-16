@@ -42,18 +42,38 @@ export const ajax = async (url: string): Promise<string> => {
 
 async function httpGet(url: string): Promise<string> {
     return new Promise((resolve: any, reject: any) => {
-        https.get(url, { timeout, headers, agent, }, (res) => {
-            const { statusCode } = res;
-            let error: Error;
-            if (statusCode !== 200) {
-                error = new Error(`${url} Status Code: ${statusCode}`);
-            }
-            if (error) {
-                res.resume();
-                return reject(error)
-            }
-            const buf = [];
-            res.on('error', reject).on('data', (chunk) => { buf.push(chunk); }).on('end', () => resolve(Buffer.concat(buf)));
-        }).on('error', reject);
+        let times = 0
+        const fn = (target: string) => {
+            https.get(url, { timeout, headers, agent, }, (res: any) => {
+                times++
+                const { statusCode, headers } = res;
+                let error: Error;
+                if (statusCode !== 200) {
+                    if (times <= 3 && [301, 302, 303].includes(statusCode)) {
+                        if (headers.location.substr(0, 4).toLowerCase() == "http") {
+                            target = headers.location
+                        } else {
+                            const u = new URL(target)
+                            if (headers.location.charAt(0) == "/") {
+                                target = u.origin + headers.location
+                            } else {
+                                const arr = u.pathname.split('/')
+                                arr[arr.length - 1] = headers.location
+                                target = u.origin + arr.join('/')
+                            }
+                        }
+                        return fn(target)
+                    }
+                    error = new Error(`${url} Status Code: ${statusCode}`);
+                }
+                if (error) {
+                    res.resume();
+                    return reject(error)
+                }
+                const buf = [];
+                res.on('error', reject).on('data', (chunk: Buffer) => { buf.push(chunk); }).on('end', () => resolve(Buffer.concat(buf)));
+            }).on('error', reject);
+        }
+
     })
 }
