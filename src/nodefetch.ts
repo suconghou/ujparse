@@ -44,7 +44,7 @@ async function httpGet(url: string): Promise<string> {
     return new Promise((resolve: any, reject: any) => {
         let times = 0
         const fn = (target: string) => {
-            https.get(url, { timeout, headers, agent, }, (res: any) => {
+            https.get(target, { timeout, headers, agent, }, (res: any) => {
                 times++
                 const { statusCode, headers } = res;
                 let error: Error;
@@ -74,6 +74,6 @@ async function httpGet(url: string): Promise<string> {
                 res.on('error', reject).on('data', (chunk: Buffer) => { buf.push(chunk); }).on('end', () => resolve(Buffer.concat(buf)));
             }).on('error', reject);
         }
-
+        fn(url)
     })
 }
