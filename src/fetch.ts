@@ -2,6 +2,11 @@
 // 当前的http执行器是cf worker的fetch
 // 可以改写成基于xhr或node http request都可以
 
+const headers = new Headers({
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:74.0) Gecko/20100101 Firefox/74.0',
+    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+})
+
 const cache = new Map()
 
 const get = (key: string) => {
@@ -33,7 +38,6 @@ export const ajax = async (url: string): Promise<string> => {
     if (text) {
         return text
     }
-    const headers = { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:74.0) Gecko/20100101 Firefox/74.0' }
     const init = {
         headers,
         method: 'GET',
