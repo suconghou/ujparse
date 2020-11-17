@@ -1,6 +1,11 @@
 
 // 当前的http执行器是cf worker的fetch
 // 可以改写成基于xhr或node http request都可以
+declare namespace CACHE {
+    function put(key: string, value: string, options?: any): Promise<any>
+    function get(key: string, type?: string): Promise<any>
+}
+
 
 const headers = new Headers({
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:74.0) Gecko/20100101 Firefox/74.0',
@@ -38,6 +43,12 @@ export const ajax = async (url: string): Promise<string> => {
     if (text) {
         return text
     }
+    if (CACHE) {
+        text = await CACHE.get(url)
+        if (text) {
+            return text
+        }
+    }
     const init = {
         headers,
         method: 'GET',
@@ -50,5 +61,8 @@ export const ajax = async (url: string): Promise<string> => {
     const r = await fetch(url, init)
     text = await r.text()
     set(url, text)
+    if (CACHE) {
+        await CACHE.put(url, text, { expirationTtl: 7200 })
+    }
     return text
 }
