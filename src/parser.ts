@@ -167,6 +167,9 @@ class infoParser extends infoGetter {
 export default class {
     private parser: pageParser | infoParser
     constructor(private vid: string, private fetch: Function) {
+        if (!vid || typeof fetch != 'function') {
+            throw new Error("invalid params");
+        }
     }
 
     private async initParser() {
