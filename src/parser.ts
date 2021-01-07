@@ -105,18 +105,37 @@ class pageParser extends infoGetter {
         if (jsPath) {
             store.set("jsPath", jsPath)
         }
+        let videoDetails: any;
+        let streamingData: any;
+        try {
+            let hasJsPath: string;
+            [hasJsPath, videoDetails, streamingData] = this.extract1(text);
+            if (!jsPath) {
+                jsPath = hasJsPath
+            }
+        } catch (e) {
+            console.error(e, "try extract2");
+            [videoDetails, streamingData] = this.extract2(text);
+        }
+        this.jsPath = jsPath || store.get("jsPath")
+        this.videoDetails = videoDetails;
+        this.streamingData = streamingData
+    }
+
+    private extract1(text: string) {
         const arr = text.match(/ytplayer\.config\s*=\s*({.+?});ytplayer/)
         if (!arr || arr.length < 2) {
             throw new Error("ytplayer config not found")
         }
         const data = JSON.parse(arr[1])
         let player_response: any;
+        let jsPath: string;
         const args = data.args;
         const assets = data.assets;
         if (!args) {
             throw new Error("not found player_response");
         }
-        if (!jsPath && assets && assets.js) {
+        if (assets && assets.js) {
             jsPath = assets.js;
         }
         if (jsPath) {
@@ -126,10 +145,24 @@ class pageParser extends infoGetter {
         if (!player_response.streamingData || !player_response.videoDetails) {
             throw new Error("invalid player_response");
         }
-        this.jsPath = jsPath
-        this.videoDetails = player_response.videoDetails;
-        this.streamingData = player_response.streamingData
+        return [jsPath, player_response.videoDetails, player_response.streamingData];
     }
+
+    private extract2(text: string) {
+        const arr = text.match(/ytInitialPlayerResponse\s+=\s+(.*\]});.*?var/)
+        if (!arr || arr.length < 2) {
+            throw new Error("initPlayer not found")
+        }
+        const data = JSON.parse(arr[1]);
+        if (!data) {
+            throw new Error("parse initPlayer error")
+        }
+        if (!data.streamingData || !data.videoDetails) {
+            throw new Error("invalid initPlayer")
+        }
+        return [data.videoDetails, data.streamingData];
+    }
+
 }
 
 class infoParser extends infoGetter {
