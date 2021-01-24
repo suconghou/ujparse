@@ -23,7 +23,7 @@ class infoGetter {
             return info
         }
         for (let item of this.streamingData.formats) {
-            const itag = item.itag
+            const itag = String(item.itag)
             const s = {
                 "quality": item.qualityLabel || item.quality,
                 "type": item.mimeType.replace(/\+/g, ' '),
@@ -36,7 +36,7 @@ class infoGetter {
             streams[itag] = s
         }
         for (let item of this.streamingData.adaptiveFormats) {
-            const itag = item.itag
+            const itag = String(item.itag)
             const s = {
                 "quality": item.qualityLabel || item.quality,
                 "type": item.mimeType.replace(/\+/g, ' '),
