@@ -170,7 +170,7 @@ class infoParser extends infoGetter {
 
     constructor(private vid: string, protected fetch: Function) {
         super()
-        this.videoInfoURL = `${baseURL}/get_video_info?video_id=${vid}`
+        this.videoInfoURL = `${baseURL}/get_video_info?video_id=${vid}&html5=1`
     }
     async init() {
         const infostr: string = await this.fetch(this.videoInfoURL)
