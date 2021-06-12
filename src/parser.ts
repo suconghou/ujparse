@@ -105,51 +105,14 @@ class pageParser extends infoGetter {
         if (jsPath) {
             store.set("jsPath", jsPath)
         }
-        let videoDetails: any;
-        let streamingData: any;
-        try {
-            let hasJsPath: string;
-            [hasJsPath, videoDetails, streamingData] = this.extract1(text);
-            if (!jsPath) {
-                jsPath = hasJsPath
-            }
-        } catch (e) {
-            console.error(e, "try extract2");
-            [videoDetails, streamingData] = this.extract2(text);
-        }
+        const [videoDetails, streamingData] = this.extract(text);
         this.jsPath = jsPath || store.get("jsPath")
         this.videoDetails = videoDetails;
         this.streamingData = streamingData
     }
 
-    private extract1(text: string) {
-        const arr = text.match(/ytplayer\.config\s*=\s*({.+?});ytplayer/)
-        if (!arr || arr.length < 2) {
-            throw new Error("ytplayer config not found")
-        }
-        const data = JSON.parse(arr[1])
-        let player_response: any;
-        let jsPath: string;
-        const args = data.args;
-        const assets = data.assets;
-        if (!args) {
-            throw new Error("not found player_response");
-        }
-        if (assets && assets.js) {
-            jsPath = assets.js;
-        }
-        if (jsPath) {
-            store.set("jsPath", jsPath)
-        }
-        player_response = JSON.parse(args.player_response)
-        if (!player_response.streamingData || !player_response.videoDetails) {
-            throw new Error("invalid player_response");
-        }
-        return [jsPath, player_response.videoDetails, player_response.streamingData];
-    }
-
-    private extract2(text: string) {
-        const arr = text.match(/ytInitialPlayerResponse\s+=\s+(.*\]});.*?var/)
+    private extract(text: string) {
+        const arr = text.match(/ytInitialPlayerResponse\s+=\s+(.*}{3,});\s*var/)
         if (!arr || arr.length < 2) {
             throw new Error("initPlayer not found")
         }
@@ -175,7 +138,7 @@ class infoParser extends infoGetter {
     async init() {
         const infostr: string = await this.fetch(this.videoInfoURL)
         if (!infostr.includes('status') && infostr.split('&').length < 5) {
-            throw new Error("get_video_info error :"+infostr)
+            throw new Error("get_video_info error :" + infostr)
         }
         const data = parseQuery(infostr)
         if (data.status !== 'ok') {
