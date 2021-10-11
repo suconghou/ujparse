@@ -30,10 +30,8 @@ class infoParser {
             "videoId": this.vid,
             "context": {
                 "client": {
-                    "hl": "en",
-                    "gl": "US",
-                    "clientName": "ANDROID",
-                    "clientVersion": "16.02"
+                    "clientName": "Android",
+                    "clientVersion": "16.13.35"
                 }
             }
         }
@@ -97,7 +95,7 @@ class infoParser {
             info['error'] = this.error
             return info
         }
-        for (let item of (this.streamingData.formats || [])) {
+        for (let item of (this.streamingData.formats || []).concat(this.streamingData.adaptiveFormats || [])) {
             const itag = String(item.itag)
             const s = {
                 "quality": item.qualityLabel || item.quality,
@@ -106,20 +104,11 @@ class infoParser {
                 "len": item.contentLength,
                 'url': await this.buildURL(item)
             }
-            streams[itag] = s
-        }
-        for (let item of (this.streamingData.adaptiveFormats || [])) {
-            const itag = String(item.itag)
-            const s = {
-                "quality": item.qualityLabel || item.quality,
-                "type": item.mimeType.replace(/\+/g, ' '),
-                "itag": itag,
-                "len": item.contentLength,
-                "initRange": item.initRange,
-                "indexRange": item.indexRange,
-                'url': await this.buildURL(item)
+            if (item.initRange && item.indexRange) {
+                s["initRange"] = item.initRange;
+                s["indexRange"] = item.indexRange;
             }
-            streams[itag] = s
+            streams[itag] = s;
         }
         return info;
     }
