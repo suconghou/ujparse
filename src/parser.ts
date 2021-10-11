@@ -3,13 +3,88 @@ import decipher from './decipher'
 const baseURL = 'https://www.youtube.com'
 const store = new Map()
 
-class infoGetter {
-    protected fetch: Function
-    protected jsPath: string;
-    protected videoDetails: any;
-    protected streamingData: any;
-    protected error: string;
-    async parse(itagURL?: string): Promise<any> {
+
+class infoParser {
+    private videoPageURL: string
+    private playerURL = "https://youtubei.googleapis.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
+    private decipher: decipher;
+    private jsPath: string;
+    private videoDetails: any;
+    private streamingData: any;
+    private error: string;
+
+    constructor(private vid: string, private fetch: Function, private doPost: Function) {
+        this.videoPageURL = `${baseURL}/watch?v=${vid}`
+    }
+
+    async init() {
+        try {
+            await this.playerParse()
+        } catch (e) {
+            await this.pageParse()
+        }
+    }
+
+    private async playerParse() {
+        const obj = {
+            "videoId": this.vid,
+            "context": {
+                "client": {
+                    "hl": "en",
+                    "gl": "US",
+                    "clientName": "ANDROID",
+                    "clientVersion": "16.02"
+                }
+            }
+        }
+        const body = JSON.stringify(obj)
+        const res = await this.doPost(this.playerURL, body, this.vid)
+        const [videoDetails, streamingData] = this.extract(res);
+        this.videoDetails = videoDetails;
+        this.streamingData = streamingData
+    }
+
+    private async pageParse() {
+        let jsPath: string;
+        const text = await this.fetch(this.videoPageURL)
+        if (!text) {
+            throw new Error("get page data failed");
+        }
+        const jsPathReg = text.match(/"jsUrl":"(\/s\/player.*?base.js)"/)
+        if (jsPathReg && jsPathReg.length == 2) {
+            jsPath = jsPathReg[1]
+        }
+        if (jsPath) {
+            store.set("jsPath", jsPath)
+        }
+        const arr = text.match(/ytInitialPlayerResponse\s+=\s+(.*}{3,});\s*var/)
+        if (!arr || arr.length < 2) {
+            throw new Error("ytInitialPlayerResponse not found")
+        }
+        const [videoDetails, streamingData] = this.extract(arr[1]);
+        this.jsPath = jsPath || store.get("jsPath")
+        this.videoDetails = videoDetails;
+        this.streamingData = streamingData
+    }
+
+    private extract(text: string) {
+        const data = JSON.parse(text);
+        if (!data) {
+            throw new Error("parse ytInitialPlayerResponse error")
+        }
+        if (!data.streamingData || !data.videoDetails || !data.playabilityStatus) {
+            throw new Error("invalid ytInitialPlayerResponse")
+        }
+        const ps = data.playabilityStatus
+        const s = ps.status
+        if (s != "OK") {
+            let reason = ps.reason || s;
+            throw new Error(reason)
+        }
+        return [data.videoDetails, data.streamingData];
+    }
+
+    async parse(): Promise<any> {
         const info = {
             'id': this.videoDetails.videoId,
             'title': this.videoDetails.title,
@@ -29,9 +104,7 @@ class infoGetter {
                 "type": item.mimeType.replace(/\+/g, ' '),
                 "itag": itag,
                 "len": item.contentLength,
-            }
-            if (itagURL == itag) {
-                s['url'] = await this.buildURL(item)
+                'url': await this.buildURL(item)
             }
             streams[itag] = s
         }
@@ -43,15 +116,14 @@ class infoGetter {
                 "itag": itag,
                 "len": item.contentLength,
                 "initRange": item.initRange,
-                "indexRange": item.indexRange
-            }
-            if (itagURL == itag) {
-                s['url'] = await this.buildURL(item)
+                "indexRange": item.indexRange,
+                'url': await this.buildURL(item)
             }
             streams[itag] = s
         }
         return info;
     }
+
     private async buildURL(item: any): Promise<string> {
         if (item.url) {
             return item.url
@@ -70,11 +142,14 @@ class infoGetter {
     private async signature(u: any): Promise<string> {
         const sp = u.sp || "signature"
         if (u.s) {
-            if (!this.jsPath) {
-                throw new Error("jsPath not avaiable")
+            if (!this.decipher) {
+                if (!this.jsPath) {
+                    throw new Error("jsPath not avaiable")
+                }
+                const bodystr = await this.fetch(baseURL + this.jsPath)
+                this.decipher = new decipher(bodystr)
             }
-            const d = new decipher(baseURL + this.jsPath, this.fetch)
-            const sig = await d.decode(u.s)
+            const sig = this.decipher.decode(u.s)
             return `&${sp}=${sig}`
         }
         else if (u.sig) {
@@ -83,116 +158,21 @@ class infoGetter {
             throw new Error("can not decipher url")
         }
     }
-}
-
-class pageParser extends infoGetter {
-    private videoPageURL: string
-
-    constructor(private vid: string, protected fetch: Function) {
-        super()
-        this.videoPageURL = `${baseURL}/watch?v=${vid}`
-    }
-    async init() {
-        let jsPath: string;
-        const text = await this.fetch(this.videoPageURL)
-        if (!text) {
-            throw new Error("get page data failed");
-        }
-        const jsPathReg = text.match(/"jsUrl":"(\/s\/player.*?base.js)"/)
-        if (jsPathReg && jsPathReg.length == 2) {
-            jsPath = jsPathReg[1]
-        }
-        if (jsPath) {
-            store.set("jsPath", jsPath)
-        }
-        const [videoDetails, streamingData] = this.extract(text);
-        this.jsPath = jsPath || store.get("jsPath")
-        this.videoDetails = videoDetails;
-        this.streamingData = streamingData
-    }
-
-    private extract(text: string) {
-        const arr = text.match(/ytInitialPlayerResponse\s+=\s+(.*}{3,});\s*var/)
-        if (!arr || arr.length < 2) {
-            throw new Error("initPlayer not found")
-        }
-        const data = JSON.parse(arr[1]);
-        if (!data) {
-            throw new Error("parse initPlayer error")
-        }
-        if (!data.streamingData || !data.videoDetails) {
-            throw new Error("invalid initPlayer")
-        }
-        return [data.videoDetails, data.streamingData];
-    }
 
 }
-
-class infoParser extends infoGetter {
-    private videoInfoURL: string
-
-    constructor(private vid: string, protected fetch: Function) {
-        super()
-        this.videoInfoURL = `${baseURL}/get_video_info?video_id=${vid}&html5=1`
-    }
-    async init() {
-        const infostr: string = await this.fetch(this.videoInfoURL)
-        if (!infostr.includes('status') && infostr.split('&').length < 5) {
-            throw new Error("get_video_info error :" + infostr)
-        }
-        const data = parseQuery(infostr)
-        if (data.status !== 'ok') {
-            throw new Error(`${data.status}:code ${data.errorcode},reason ${data.reason}`);
-        }
-        const player_response = JSON.parse(data.player_response)
-        if (!player_response) {
-            throw new Error("empty player_response")
-        }
-        const ps = player_response.playabilityStatus
-        if (['UNPLAYABLE', 'LOGIN_REQUIRED', 'ERROR'].includes(ps.status)) {
-            // 私享视频 视频信息都获取不到,必须终止
-            const { reason, errorScreen } = ps
-            let subreason = reason || ps.status
-            if (errorScreen && errorScreen.playerErrorMessageRenderer && errorScreen.playerErrorMessageRenderer.subreason) {
-                const r = errorScreen.playerErrorMessageRenderer.subreason.runs
-                let s = '';
-                if (r && r[0] && r[0].text) {
-                    s = ' ' + r[0].text;
-                }
-                subreason += s
-            }
-            subreason = subreason.replace(/\+/g, ' ')
-            if (['LOGIN_REQUIRED', 'ERROR'].includes(ps.status)) {
-                throw new Error(subreason)
-            }
-            this.error = subreason
-        }
-        this.videoDetails = player_response.videoDetails;
-        this.streamingData = player_response.streamingData;
-        this.jsPath = store.get("jsPath")
-    }
-}
-
 
 export default class {
-    private parser: pageParser | infoParser
-    constructor(private vid: string, private fetch: Function) {
-        if (!vid || typeof fetch != 'function') {
+    private parser: infoParser
+    constructor(private vid: string, private fetch: Function, private doPost: Function) {
+        if (!vid || typeof fetch != 'function' || typeof doPost != 'function') {
             throw new Error("invalid params");
         }
     }
 
     private async initParser() {
-        try {
-            const parser = new pageParser(this.vid, this.fetch)
-            await parser.init()
-            this.parser = parser;
-        } catch (e) {
-            console.error(e, ' , try infoParser')
-            const parser = new infoParser(this.vid, this.fetch)
-            await parser.init()
-            this.parser = parser;
-        }
+        const parser = new infoParser(this.vid, this.fetch, this.doPost)
+        await parser.init()
+        this.parser = parser;
     }
 
     async info() {
@@ -206,7 +186,7 @@ export default class {
         if (!this.parser) {
             await this.initParser()
         }
-        const info = await this.parser.parse(itag)
+        const info = await this.parser.parse()
         const itagInfo = info.streams[itag]
         if (!itagInfo) {
             throw new Error(`itag ${itag} not found`)

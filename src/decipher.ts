@@ -1,10 +1,11 @@
 export default class {
     private tokens: any
-    constructor(private jsPath: string, private fetch: Function) {
+    constructor(private bodystr: string) {
+        this.init()
     }
 
-    private async init() {
-        const bodystr = await this.fetch(this.jsPath)
+    private init() {
+        const bodystr = this.bodystr;
         const objResult = bodystr.match(/var ([a-zA-Z_\$][a-zA-Z_0-9]*)=\{((?:(?:[a-zA-Z_\$][a-zA-Z_0-9]*:function\(a\)\{(?:return )?a\.reverse\(\)\}|[a-zA-Z_\$][a-zA-Z_0-9]*:function\(a,b\)\{return a\.slice\(b\)\}|[a-zA-Z_\$][a-zA-Z_0-9]*:function\(a,b\)\{a\.splice\(0,b\)\}|[a-zA-Z_\$][a-zA-Z_0-9]*:function\(a,b\)\{var c=a\[0\];a\[0\]=a\[b(?:%a\.length)?\];a\[b(?:%a\.length)?\]=c(?:;return a)?\}),?\n?)+)\};/)
         if (!objResult) {
             throw new Error("objResult not match")
@@ -48,10 +49,7 @@ export default class {
         this.tokens = tokens
     }
 
-    async decode(s: string): Promise<string> {
-        if (!this.tokens) {
-            await this.init()
-        }
+    decode(s: string): string {
         let sig = s.split('')
         let pos = 0
         for (let tok of this.tokens) {

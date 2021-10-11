@@ -12,6 +12,15 @@ const headers = new Headers({
     'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
 })
 
+
+const headers_ = new Headers({
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:74.0) Gecko/20100101 Firefox/74.0',
+    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+    'Content-Type': 'application/json'
+})
+
+
+
 const cache = new Map()
 
 const get = (key: string) => {
@@ -58,12 +67,43 @@ export const ajax = async (url: string): Promise<string> => {
             cacheTtl: 3600,
             cacheTtlByStatus: { '200-299': 3600, 404: 60, '500-599': 10 }
         }
-    } as any
+    } as RequestInit
     const r = await fetch(url, init)
     text = await r.text()
     set(url, text)
     if (CACHE) {
         await CACHE.put(url, text, { expirationTtl: url.substr(-2) === 'js' ? 86400 : 7200 })
+    }
+    return text
+}
+
+export const doPost = async (url: string, body: string, cacheKey: string): Promise<string> => {
+    let text = get(cacheKey)
+    if (text) {
+        return text
+    }
+    if (CACHE) {
+        text = await CACHE.get(cacheKey)
+        if (text) {
+            set(cacheKey, text)
+            return text
+        }
+    }
+    const init = {
+        headers: headers_,
+        method: 'POST',
+        body: body,
+        cf: {
+            cacheEverything: true,
+            cacheTtl: 3600,
+            cacheTtlByStatus: { '200-299': 3600, 404: 60, '500-599': 10 }
+        }
+    } as RequestInit
+    const r = await fetch(url, init)
+    text = await r.text()
+    set(cacheKey, text)
+    if (CACHE) {
+        await CACHE.put(cacheKey, text, { expirationTtl: 7200 })
     }
     return text
 }
