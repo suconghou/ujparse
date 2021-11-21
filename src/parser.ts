@@ -76,7 +76,7 @@ class infoParser {
         const ps = data.playabilityStatus
         const s = ps.status
         if (s != "OK") {
-            let reason = ps.reason || s;
+            const reason = ps.reason || s;
             throw new Error(reason)
         }
         if (!data.streamingData) {
@@ -98,7 +98,7 @@ class infoParser {
             info['error'] = this.error
             return info
         }
-        for (let item of (this.streamingData.formats || []).concat(this.streamingData.adaptiveFormats || [])) {
+        for (const item of (this.streamingData.formats || []).concat(this.streamingData.adaptiveFormats || [])) {
             const itag = String(item.itag)
             const s = {
                 "quality": item.qualityLabel || item.quality,

@@ -52,7 +52,7 @@ export default class {
     decode(s: string): string {
         let sig = s.split('')
         let pos = 0
-        for (let tok of this.tokens) {
+        for (const tok of this.tokens) {
             if (tok.length > 1) {
                 pos = ~~tok.slice(1);
             }
